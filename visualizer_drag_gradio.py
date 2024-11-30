@@ -959,8 +959,8 @@ with gr.Blocks() as app:
 
     def close_your_eyes(global_state):
         points = global_state['landmarks']
-        up_eye = [38, 39, 44, 45]
-        low_eye = [42, 41, 48, 47]
+        up_eye = [38, 39, 44, 45, 3, 6, 9, 11, 14]
+        low_eye = [42, 41, 48, 47, 3, 6, 9, 11, 14]
         for i in range(len(up_eye)):
             global_state['points'][i] = {'start': points[up_eye[i] - 1].astype(np.int64), 'target': points[low_eye[i] - 1].astype(np.int64)}
         image_raw = draw_points_on_image(global_state['images']['image_raw'], global_state['points'])

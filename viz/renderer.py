@@ -21,6 +21,8 @@ import matplotlib.cm
 import dnnlib
 from torch_utils.ops import upfirdn2d
 import legacy # pylint: disable=import-error
+import face_alignment
+import cv2
 
 #----------------------------------------------------------------------------
 
@@ -48,6 +50,8 @@ class CaptureSuccess(Exception):
 def add_watermark_np(input_image_array, watermark_text="AI Generated"):
     image = Image.fromarray(np.uint8(input_image_array)).convert("RGBA")
 
+    
+
     # Initialize text image
     txt = Image.new('RGBA', image.size, (255, 255, 255, 0))
     font = ImageFont.truetype('arial.ttf', round(25/512*image.size[0]))
@@ -63,6 +67,20 @@ def add_watermark_np(input_image_array, watermark_text="AI Generated"):
     # Combine the image with the watermark
     watermarked = Image.alpha_composite(image, txt)
     watermarked_array = np.array(watermarked)
+    # fa = face_alignment.FaceAlignment(face_alignment.LandmarksType.TWO_D, flip_input=False)
+    # # print(init_image.size)
+    # p = fa.get_landmarks(watermarked_array[..., :3])[0]
+    # # t = watermarked_array[..., :3]
+    # tmp = watermarked_array[..., 3].copy()
+    # watermarked_array[..., 3] = 255
+    # for point in p:
+    #     cv2.circle(watermarked_array, (int(point[0]), int(point[1])), 2, (255, 0, 0), -1)
+    # watermarked_array[..., 3] = tmp
+    # print(init_image.size)
+    # print(p)
+    # import time
+    # time.wait()
+    # print(f'true shape, {watermarked_array.shape}')
     return watermarked_array
 
 #----------------------------------------------------------------------------

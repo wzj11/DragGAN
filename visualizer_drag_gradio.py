@@ -7,6 +7,8 @@ import gradio as gr
 import numpy as np
 import torch
 from PIL import Image
+import face_alignment
+import cv2
 
 import dnnlib
 from gradio_utils import (ImageMask, draw_mask_on_image, draw_points_on_image,
@@ -92,10 +94,19 @@ def init_images(global_state):
     init_image = state['generator_params'].image
     state['images']['image_orig'] = init_image
     state['images']['image_raw'] = init_image
+    
     state['images']['image_show'] = Image.fromarray(
         add_watermark_np(np.array(init_image)))
     state['mask'] = np.ones((init_image.size[1], init_image.size[0]),
                             dtype=np.uint8)
+    image = np.array(state['images']['image_raw'])
+    fa = face_alignment.FaceAlignment(
+        face_alignment.LandmarksType.TWO_D,
+        device='cuda' if torch.cuda.is_available() else 'cpu',
+    )
+    points = fa.get_landmarks(image)[0]
+    state['landmarks'] = points
+
     return global_state
 
 
@@ -161,7 +172,7 @@ print(os.listdir(cache_dir))
 print('Valid checkpoint file:')
 print(valid_checkpoints_dict)
 
-init_pkl = 'stylegan2_lions_512_pytorch'
+init_pkl = 'stylegan2-ffhq-512x512'
 
 with gr.Blocks() as app:
 
@@ -223,6 +234,29 @@ with gr.Blocks() as app:
                             label="Pretrained Model",
                             value=init_pkl,
                         )
+
+                # face-alignment
+                with gr.Row():
+
+                    with gr.Column(scale=1, min_width=10):
+                        gr.Markdown(value='Face', show_label=False)
+
+                    with gr.Column(scale=4, min_width=10):
+                        # with gr.Row(scale=4, min_width=10):
+                        form_face_alignment = gr.Button(
+                            "Face Alignment",
+                        )
+
+                        # with gr.Row(scale=4, min_width=10):
+                        close_mouth = gr.Button(
+                            "Close Mouth",
+                        )
+
+                        # with gr.Row(scale=4, min_width=10):
+                        close_eyes = gr.Button(
+                            "Close Eyes",
+                        )
+
 
                 # Latent
                 with gr.Row():
@@ -381,6 +415,42 @@ with gr.Blocks() as app:
         inputs=[global_state],
         outputs=[global_state, form_image],
     )
+
+    def on_click_show_landmarks(global_state):
+        points = global_state['landmarks']
+
+        for i, point in enumerate(points):
+            global_state['points'][i] = {'start': point, 'target': None}
+        image_raw = draw_points_on_image(global_state['images']['image_raw'], global_state['points'])
+        image_draw = Image.fromarray(add_watermark_np(np.array(image_raw)))
+        if global_state is not None:
+            global_state['images']['image_show'] = image_draw
+
+        clear_state(global_state)
+        return global_state, image_draw
+
+
+        image = np.array(form_image['image'])
+        image = Image.fromarray(np.uint8(image)).convert("RGBA")
+        image = np.array(image)
+        print(image.shape)
+        # exit()
+        
+        tmp = image[..., 3].copy()
+        for point in points:
+            cv2.circle(image, (int(point[0]), int(point[1])), 1, (255, 0, 0), -1)
+        image[..., 3] = tmp
+
+        return Image.fromarray(image)
+
+    form_face_alignment.click(
+        on_click_show_landmarks,
+        inputs=[global_state],
+        outputs=[global_state, form_image]
+    )
+
+    
+
 
     # Update parameters
     def on_change_update_image_seed(seed, global_state):
@@ -864,6 +934,48 @@ with gr.Blocks() as app:
         on_click_show_mask,
         inputs=[global_state, show_mask],
         outputs=[global_state, form_image],
+    )
+
+    def close_your_mouth(global_state):
+        points = global_state['landmarks']
+        up_lip = [62, 63, 64]
+        low_lip = [68, 67, 66]
+        for i in range(len(up_lip)):
+            global_state['points'][i] = {'start': points[up_lip[i] - 1].astype(np.int64), 'target': points[low_lip[i] - 1].astype(np.int64)}
+        image_raw = draw_points_on_image(global_state['images']['image_raw'], global_state['points'])
+        image_draw = Image.fromarray(add_watermark_np(np.array(image_raw)))
+        if global_state is not None:
+            global_state['images']['image_show'] = image_draw
+        return global_state, image_draw
+
+        
+        return global_state, image_draw
+
+    close_mouth.click(
+        close_your_mouth,
+        inputs=[global_state],
+        outputs=[global_state, form_image]
+    )
+
+    def close_your_eyes(global_state):
+        points = global_state['landmarks']
+        up_eye = [38, 39, 44, 45]
+        low_eye = [42, 41, 48, 47]
+        for i in range(len(up_eye)):
+            global_state['points'][i] = {'start': points[up_eye[i] - 1].astype(np.int64), 'target': points[low_eye[i] - 1].astype(np.int64)}
+        image_raw = draw_points_on_image(global_state['images']['image_raw'], global_state['points'])
+        image_draw = Image.fromarray(add_watermark_np(np.array(image_raw)))
+        if global_state is not None:
+            global_state['images']['image_show'] = image_draw
+        return global_state, image_draw
+
+        
+        return global_state, image_draw
+
+    close_eyes.click(
+        close_your_eyes,
+        inputs=[global_state],
+        outputs=[global_state, form_image]
     )
 
 gr.close_all()
